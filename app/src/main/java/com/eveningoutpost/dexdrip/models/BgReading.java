@@ -43,7 +43,6 @@ import com.eveningoutpost.dexdrip.messages.BgReadingMessage;
 import com.eveningoutpost.dexdrip.messages.BgReadingMultiMessage;
 import com.eveningoutpost.dexdrip.utils.DexCollectionType;
 import com.eveningoutpost.dexdrip.utils.SqliteRejigger;
-import com.eveningoutpost.dexdrip.wearintegration.WatchUpdaterService;
 import com.eveningoutpost.dexdrip.xdrip;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -1363,12 +1362,6 @@ public class BgReading extends Model implements ShareUploadableBg {
 
     public static void handleResyncWearAfterBackfill(final long earliest) {
         if (earliest_backfill == 0 || earliest < earliest_backfill) earliest_backfill = earliest;
-        if (WatchUpdaterService.isEnabled()) {
-            Inevitable.task("wear-backfill-sync", 10000, () -> {
-                WatchUpdaterService.startServiceAndResendDataIfNeeded(earliest_backfill);
-                earliest_backfill = 0;
-            });
-        }
     }
 
     public void setRemoteMarker() {

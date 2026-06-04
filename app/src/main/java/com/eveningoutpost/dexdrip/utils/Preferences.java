@@ -80,7 +80,6 @@ import com.eveningoutpost.dexdrip.cloud.nightlite.NightLiteEntry;
 import com.eveningoutpost.dexdrip.cloud.nightlite.NightLiteQR;
 import com.eveningoutpost.dexdrip.healthconnect.HealthConnectEntry;
 import com.eveningoutpost.dexdrip.healthconnect.HealthGamut;
-import com.eveningoutpost.dexdrip.insulin.inpen.InPenEntry;
 import com.eveningoutpost.dexdrip.models.DesertSync;
 import com.eveningoutpost.dexdrip.models.JoH;
 import com.eveningoutpost.dexdrip.models.Profile;
@@ -121,15 +120,6 @@ import com.eveningoutpost.dexdrip.utilitymodels.pebble.watchface.InstallPebbleTr
 import com.eveningoutpost.dexdrip.utilitymodels.pebble.watchface.InstallPebbleTrendWatchFace;
 import com.eveningoutpost.dexdrip.utilitymodels.pebble.watchface.InstallPebbleWatchFace;
 import com.eveningoutpost.dexdrip.utils.framework.IncomingCallsReceiver;
-import com.eveningoutpost.dexdrip.watch.lefun.LeFunEntry;
-import com.eveningoutpost.dexdrip.watch.miband.MiBand;
-import com.eveningoutpost.dexdrip.watch.miband.MiBandEntry;
-import com.eveningoutpost.dexdrip.watch.miband.MiBandService;
-import com.eveningoutpost.dexdrip.watch.thinjam.BlueJay;
-import com.eveningoutpost.dexdrip.watch.thinjam.BlueJayAdapter;
-import com.eveningoutpost.dexdrip.watch.thinjam.BlueJayEntry;
-import com.eveningoutpost.dexdrip.wearintegration.Amazfitservice;
-import com.eveningoutpost.dexdrip.wearintegration.WatchUpdaterService;
 import com.eveningoutpost.dexdrip.webservices.XdripWebService;
 import com.eveningoutpost.dexdrip.xDripWidget;
 import com.eveningoutpost.dexdrip.xdrip;
@@ -438,16 +428,6 @@ public class Preferences extends BasePreferenceActivity implements SearchPrefere
                 return;
             }
 
-            try {
-                if (BlueJay.processQRCode(scanRawBytes)) {
-                    refreshFragments();
-                    return;
-                }
-            } catch (Exception e) {
-                // meh
-            }
-
-
             final NSBarcodeConfig barcode = new NSBarcodeConfig(scanContents);
             if (barcode.hasMongoConfig()) {
                 if (barcode.getMongoUri().isPresent()) {
@@ -544,15 +524,6 @@ public class Preferences extends BasePreferenceActivity implements SearchPrefere
         mibandStatusReceiver = new BroadcastReceiver() {
             @Override
             public void onReceive(Context context, Intent intent) {
-            final MiBandService.MIBAND_INTEND_STATES state = MiBandService.MIBAND_INTEND_STATES.valueOf(intent.getStringExtra("state"));
-            switch (state) {
-                case UPDATE_PREF_SCREEN:
-                    preferenceFragment.updateMiBandScreen();
-                    break;
-                case UPDATE_PREF_DATA:
-                    preferenceFragment.updateMibandPreferencesData();
-                    break;
-                }
             }
         };
 
@@ -608,11 +579,8 @@ public class Preferences extends BasePreferenceActivity implements SearchPrefere
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && DexCollectionType.hasBluetooth() && !WholeHouse.isRpi()) {
             LocationHelper.requestLocationForBluetooth(this); // double check!
         }
-        PreferenceManager.getDefaultSharedPreferences(this).registerOnSharedPreferenceChangeListener(LeFunEntry.prefListener);
         PreferenceManager.getDefaultSharedPreferences(this).registerOnSharedPreferenceChangeListener(Cpref.prefListener);
-        PreferenceManager.getDefaultSharedPreferences(this).registerOnSharedPreferenceChangeListener(MiBandEntry.prefListener);
         PreferenceManager.getDefaultSharedPreferences(this).registerOnSharedPreferenceChangeListener(BroadcastService.prefListener);
-        PreferenceManager.getDefaultSharedPreferences(this).registerOnSharedPreferenceChangeListener(BlueJayEntry.prefListener);
         PreferenceManager.getDefaultSharedPreferences(this).registerOnSharedPreferenceChangeListener(uiPrefListener);
         PreferenceManager.getDefaultSharedPreferences(this).registerOnSharedPreferenceChangeListener(Registry.prefListener);
         PreferenceManager.getDefaultSharedPreferences(this).registerOnSharedPreferenceChangeListener(xDripCloudListener);
@@ -624,11 +592,8 @@ public class Preferences extends BasePreferenceActivity implements SearchPrefere
     protected void onPause()
     {
         PreferenceManager.getDefaultSharedPreferences(this).unregisterOnSharedPreferenceChangeListener(ActivityRecognizedService.prefListener);
-        PreferenceManager.getDefaultSharedPreferences(this).unregisterOnSharedPreferenceChangeListener(LeFunEntry.prefListener);
         PreferenceManager.getDefaultSharedPreferences(this).unregisterOnSharedPreferenceChangeListener(Cpref.prefListener);
-        PreferenceManager.getDefaultSharedPreferences(this).unregisterOnSharedPreferenceChangeListener(MiBandEntry.prefListener);
         PreferenceManager.getDefaultSharedPreferences(this).unregisterOnSharedPreferenceChangeListener(BroadcastService.prefListener);
-        PreferenceManager.getDefaultSharedPreferences(this).unregisterOnSharedPreferenceChangeListener(BlueJayEntry.prefListener);
         PreferenceManager.getDefaultSharedPreferences(this).unregisterOnSharedPreferenceChangeListener(uiPrefListener);
         PreferenceManager.getDefaultSharedPreferences(this).unregisterOnSharedPreferenceChangeListener(Registry.prefListener);
         PreferenceManager.getDefaultSharedPreferences(this).unregisterOnSharedPreferenceChangeListener(xDripCloudListener);
@@ -1231,53 +1196,6 @@ public class Preferences extends BasePreferenceActivity implements SearchPrefere
                 //
             }
 
-            try {
-                miband2_screen = findPreference("miband2_screen");
-                miband3_4_screen = findPreference("miband3_4_screen");
-                miband_graph_category = findPreference("miband_graph_category");
-                miband_send_readings_as_notification = findPreference(MiBandEntry.PREF_MIBAND_SEND_READINGS_AS_NOTIFICATION);
-                miband_authkey = findPreference(MiBandEntry.PREF_MIBAND_AUTH_KEY);
-                miband_nightmode_category = findPreference("miband_nightmode_category");
-                miband_nightmode_interval = findPreference(MiBandEntry.PREF_MIBAND_NIGHTMODE_INTERVAL);
-
-                miband_nightmode_interval.setOnPreferenceChangeListener(MiBandEntry.sBindMibandPreferenceChangeListener);
-                MiBandEntry.sBindMibandPreferenceChangeListener.onPreferenceChange(miband_nightmode_interval,
-                        PreferenceManager
-                                .getDefaultSharedPreferences(miband_nightmode_interval.getContext())
-                                .getInt(miband_nightmode_interval.getKey(), -1));
-
-                findPreference(MiBandEntry.PREF_CALL_ALERTS).setOnPreferenceChangeListener((preference, newValue) -> {
-                    IncomingCallsReceiver.checkPermission(this.getActivity());
-                    return true;
-                });
-
-                findPreference(MiBandEntry.PREF_MIBAND_ENABLED).setOnPreferenceChangeListener((preference, newValue) -> {
-                    if ((Boolean) newValue) {
-                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && (boolean) newValue) {
-                            LocationHelper.requestLocationForBluetooth((Activity) preference.getContext());
-                        }
-                        checkReadPermission(this.getActivity());
-                    }
-                    return true;
-                });
-
-                updateMiBandScreen();
-
-                bindPreferenceTitleAppendToMacValue(findPreference(MiBandEntry.PREF_MIBAND_MAC));
-
-                findPreference(MiBandEntry.PREF_MIBAND_UPDATE_BG).setOnPreferenceClickListener(preference -> {
-                    updateMiBandBG(preference.getContext());
-                    return true;
-                });
-
-                if (!Home.get_engineering_mode()){
-                    PreferenceScreen settings = (PreferenceScreen) findPreference(MiBandEntry.PREF_MIBAND_SETTINGS);
-                    settings.removePreference(findPreference("debug_miband4"));
-                }
-
-            } catch (Exception e) {
-                //
-            }
 
             try {
                 final Activity activity = this.getActivity();
@@ -1559,7 +1477,6 @@ public class Preferences extends BasePreferenceActivity implements SearchPrefere
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && (boolean) newValue) {
                         LocationHelper.requestLocationForBluetooth((Activity) preference.getContext()); // double check!
                     }
-                    InPenEntry.startWithRefresh();
                     return true;
                 });
             } catch (Exception e) {
@@ -1600,20 +1517,6 @@ public class Preferences extends BasePreferenceActivity implements SearchPrefere
             bindPreferenceSummaryToValue(findPreference("wear_logs_prefix"));
             bindPreferenceSummaryToValue(findPreference("disable_wearG5_on_missedreadings_level"));
 
-            try {
-                final Preference blueJayScreenTimeout = findPreference("bluejay_screen_timeout");
-                BlueJayAdapter.sBindPreferenceTitleAppendToBlueJayTimeoutValueListener.onPreferenceChange(blueJayScreenTimeout,
-                        PreferenceManager
-                                .getDefaultSharedPreferences(blueJayScreenTimeout.getContext())
-                                .getInt(blueJayScreenTimeout.getKey(), -1));
-                blueJayScreenTimeout.setOnPreferenceChangeListener(BlueJayAdapter.sBindPreferenceTitleAppendToBlueJayTimeoutValueListener);
-
-                findPreference("bluejay_run_as_phone_collector").setOnPreferenceChangeListener(BlueJayAdapter.changeToPhoneSlotListener);
-                findPreference("bluejay_run_phone_collector").setOnPreferenceChangeListener(BlueJayAdapter.changeToPhoneCollectorListener);
-
-            } catch (Exception e) {
-                //
-            }
 
             final Preference useCustomSyncKey = findPreference("use_custom_sync_key");
             final Preference CustomSyncKey = findPreference("custom_sync_key");
@@ -1640,35 +1543,6 @@ public class Preferences extends BasePreferenceActivity implements SearchPrefere
             final Preference enableAmazfit = findPreference("pref_amazfit_enable_key");
 
 
-            enableAmazfit.setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
-               @Override
-               public boolean onPreferenceChange(Preference preference, Object newValue) {
-                  final Context context = preference.getContext();
-                  Boolean enabled = (boolean) newValue;
-                   if (enabled==true) {
-                       context.startService(new Intent(context, Amazfitservice.class));
-
-                   }else {
-                       context.stopService(new Intent(context, Amazfitservice.class));
-                   }
-
-                return true;
-                }
-            });
-
-            // TODO build list of preferences to cause wear refresh from list
-            findPreference("wear_sync").setOnPreferenceChangeListener((preference, newValue) -> {
-                        WatchUpdaterService.startSelf();
-                        return true;
-                    }
-            );
-
-            // TODO build list of preferences to cause wear refresh from list
-            findPreference("use_wear_heartrate").setOnPreferenceChangeListener((preference, newValue) -> {
-                        WatchUpdaterService.startSelf();
-                        return true;
-                    }
-            );
 
             findPreference("bluetooth_meter_enabled").setOnPreferenceChangeListener(new Preference.OnPreferenceChangeListener() {
                 @Override
@@ -2737,46 +2611,9 @@ public class Preferences extends BasePreferenceActivity implements SearchPrefere
         }
 
         private void updateMiBandScreen(){
-            MiBand.MiBandType type = MiBand.getMibandType();
-            PreferenceScreen settings = (PreferenceScreen) findPreference(MiBandEntry.PREF_MIBAND_SETTINGS);
-            PreferenceScreen prefs = (PreferenceScreen) findPreference(MiBandEntry.PREF_MIBAND_PREFERENCES);
-            try {
-                settings.removePreference(miband2_screen);
-                settings.removePreference(miband3_4_screen);
-                settings.removePreference(miband_nightmode_category);
-                prefs.removePreference(miband_graph_category);
-                prefs.removePreference(miband_send_readings_as_notification);
-                prefs.removePreference(miband_authkey);
-
-                if (type == MiBand.MiBandType.MI_BAND4) {
-                    settings.addPreference(miband3_4_screen);
-                    settings.addPreference(miband_nightmode_category);
-                    prefs.addPreference(miband_graph_category);
-                    prefs.addPreference(miband_send_readings_as_notification);
-                    prefs.addPreference(miband_authkey);
-                } else if (type == MiBand.MiBandType.MI_BAND2) {
-                    settings.addPreference(miband2_screen);
-                }
-                else if (type == MiBand.MiBandType.MI_BAND3 || type == MiBand.MiBandType.MI_BAND3_1){
-                    settings.addPreference(miband3_4_screen);
-                    settings.addPreference(miband_nightmode_category);
-                }
-            } catch (Exception e) {
-                Log.e(TAG, "Cannot find preference item: " + e);
-            }
         }
 
         private void updateMibandPreferencesData(){
-            EditTextPreference prefMac = (EditTextPreference) findPreference(MiBandEntry.PREF_MIBAND_MAC);
-            if (prefMac != null ) {
-                prefMac.setText(MiBand.getMac());
-                sBindPreferenceTitleAppendToMacValueListener.onPreferenceChange(prefMac,
-                        PreferenceManager
-                                .getDefaultSharedPreferences(prefMac.getContext())
-                                .getString(prefMac.getKey(), ""));
-            }
-            EditTextPreference prefAuthKey = (EditTextPreference) findPreference(MiBandEntry.PREF_MIBAND_AUTH_KEY);
-            if (prefAuthKey != null )prefAuthKey.setText(MiBand.getAuthKey());
         }
 
         // all this boiler plate for a dynamic interface seems excessive and boring, I would love to know a helper library to simplify this
@@ -2871,24 +2708,6 @@ public class Preferences extends BasePreferenceActivity implements SearchPrefere
         }
 
         private void updateMiBandBG(Context context) {
-            AlertDialog.Builder builder = new AlertDialog.Builder(context);
-            builder.setTitle(xdrip.getAppContext().getResources().getString(R.string.miband_bg_dialog_title));
-            builder.setPositiveButton(xdrip.getAppContext().getResources().getString(R.string.yes), new DialogInterface.OnClickListener() {
-                public void onClick(DialogInterface dialog, int which) {
-                    dialog.dismiss();
-                    MiBandEntry.forceShowLatestBG();
-                }
-            });
-
-            builder.setNegativeButton(xdrip.getAppContext().getResources().getString(R.string.no), new DialogInterface.OnClickListener() {
-                @Override
-                public void onClick(DialogInterface dialog, int which) {
-                    dialog.dismiss();
-                }
-            });
-
-            AlertDialog alert = builder.create();
-            alert.show();
         }
 
         private void installPebbleWatchface(final int pebbleType, Preference preference) {

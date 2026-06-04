@@ -46,8 +46,6 @@ import com.eveningoutpost.dexdrip.utilitymodels.BgGraphBuilder;
 import com.eveningoutpost.dexdrip.utilitymodels.Constants;
 import com.eveningoutpost.dexdrip.utilitymodels.Pref;
 import com.eveningoutpost.dexdrip.utils.ActivityWithMenu;
-import com.eveningoutpost.dexdrip.watch.thinjam.BlueJayEntry;
-import com.eveningoutpost.dexdrip.wearintegration.WatchUpdaterService;
 
 import java.text.DecimalFormat;
 import java.text.ParseException;
@@ -56,7 +54,6 @@ import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 
-import static com.eveningoutpost.dexdrip.Home.startWatchUpdaterService;
 import static com.eveningoutpost.dexdrip.xdrip.gs;
 
 import lombok.val;
@@ -559,10 +556,8 @@ public class EditAlertActivity extends ActivityWithMenu {
                     AlertType.add_alert(null, alertText.getText().toString(), above, threshold, allDay, alertReraise, mp3_file, timeStart, timeEnd, overrideSilentMode, forceSpeaker, defaultSnooze, vibrate, !disabled);
                 }
 
-                startWatchUpdaterService(mContext, WatchUpdaterService.ACTION_SYNC_ALERTTYPE, TAG);
                 Intent returnIntent = new Intent();
                 setResult(RESULT_OK,returnIntent);
-                BlueJayEntry.startWithRefreshIfEnabled();
                 finish();
             }
 
@@ -576,7 +571,6 @@ public class EditAlertActivity extends ActivityWithMenu {
                                 Log.wtf(TAG, "Error remove pressed, while we were adding an alert");
                             } else {
                                 AlertType.remove_alert(uuid);
-                                startWatchUpdaterService(mContext, WatchUpdaterService.ACTION_SYNC_ALERTTYPE, TAG);
                             }
                             Intent returnIntent = new Intent();
                             setResult(RESULT_OK, returnIntent);

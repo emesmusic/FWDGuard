@@ -85,7 +85,6 @@ import com.eveningoutpost.dexdrip.models.BgReading;
 import com.eveningoutpost.dexdrip.models.BloodTest;
 import com.eveningoutpost.dexdrip.models.Calibration;
 import com.eveningoutpost.dexdrip.models.HeartRate;
-import com.eveningoutpost.dexdrip.models.InsulinInjection;
 import com.eveningoutpost.dexdrip.models.JoH;
 import com.eveningoutpost.dexdrip.models.LibreBlock;
 import com.eveningoutpost.dexdrip.models.ProcessInitialDataQuality;
@@ -130,11 +129,6 @@ import com.eveningoutpost.dexdrip.databinding.ActivityHomeBinding;
 import com.eveningoutpost.dexdrip.databinding.ActivityHomeShelfSettingsBinding;
 import com.eveningoutpost.dexdrip.databinding.PopupInitialStatusHelperBinding;
 import com.eveningoutpost.dexdrip.eassist.EmergencyAssistActivity;
-import com.eveningoutpost.dexdrip.insulin.Insulin;
-import com.eveningoutpost.dexdrip.insulin.InsulinManager;
-import com.eveningoutpost.dexdrip.insulin.MultipleInsulins;
-import com.eveningoutpost.dexdrip.insulin.inpen.InPenEntry;
-import com.eveningoutpost.dexdrip.insulin.pendiq.Pendiq;
 import com.eveningoutpost.dexdrip.nfc.NFControl;
 import com.eveningoutpost.dexdrip.profileeditor.DatePickerFragment;
 import com.eveningoutpost.dexdrip.profileeditor.ProfileAdapter;
@@ -158,8 +152,6 @@ import com.eveningoutpost.dexdrip.utils.LibreTrendGraph;
 import com.eveningoutpost.dexdrip.utils.Preferences;
 import com.eveningoutpost.dexdrip.utils.SdcardImportExport;
 import com.eveningoutpost.dexdrip.utils.TestFeature;
-import com.eveningoutpost.dexdrip.wearintegration.Amazfitservice;
-import com.eveningoutpost.dexdrip.wearintegration.WatchUpdaterService;
 import com.github.amlcurran.showcaseview.ShowcaseView;
 import com.github.amlcurran.showcaseview.targets.Target;
 import com.github.amlcurran.showcaseview.targets.ViewTarget;
@@ -203,7 +195,7 @@ public class Home extends ActivityWithMenu implements ActivityCompat.OnRequestPe
     private final static String TAG = "jamorham " + Home.class.getSimpleName();
     private final static boolean d = false;
     private static final int MAX_INSULIN_PROFILES = 3;
-    public final int maxInsulinProfiles = MultipleInsulins.isEnabled() ? MAX_INSULIN_PROFILES : 0;
+    public final int maxInsulinProfiles = 0;
     public final static String START_SPEECH_RECOGNITION = "START_APP_SPEECH_RECOGNITION";
     public final static String START_TEXT_RECOGNITION = "START_APP_TEXT_RECOGNITION";
     public final static String CREATE_TREATMENT_NOTE = "CREATE_TREATMENT_NOTE";
@@ -299,8 +291,8 @@ public class Home extends ActivityWithMenu implements ActivityCompat.OnRequestPe
     double thiscarbsnumber = 0;
     double thisInsulinSumNumber = 0;
     double[] thisinsulinnumber = new double[MAX_INSULIN_PROFILES];
-    Insulin[] thisinsulinprofile = new Insulin[MAX_INSULIN_PROFILES];
-    ArrayList<Insulin> insulins = null;
+    Object[] thisinsulinprofile = new Object[0];
+    ArrayList insulins = null;
     double thistimeoffset = 0;
     String thisword = "";
     String thisuuid = "";
@@ -474,8 +466,7 @@ public class Home extends ActivityWithMenu implements ActivityCompat.OnRequestPe
         if (searchWords == null) {
             initializeSearchWords("");
         }
-        if (insulins == null)   // TODO only when using multiples?
-            insulins = InsulinManager.getDefaultInstance();
+        // insulin profiles disabled
 
         this.btnSpeak = (ImageButton) findViewById(R.id.btnTreatment);
         btnSpeak.setOnClickListener(v -> promptTextInput());
@@ -509,7 +500,6 @@ public class Home extends ActivityWithMenu implements ActivityCompat.OnRequestPe
             textInsulinSumDose.setVisibility(View.INVISIBLE);
             buttonInsulinSingleDose.setVisibility(View.INVISIBLE);
             Treatments.create(0, thisInsulinSumNumber, Treatments.getTimeStampWithOffset(thistimeoffset));
-            Pendiq.handleTreatment(thisInsulinSumNumber);
             thisInsulinSumNumber = 0;
             reset_viewport = true;
             if (hideTreatmentButtonsIfAllDone()) {
@@ -547,7 +537,7 @@ public class Home extends ActivityWithMenu implements ActivityCompat.OnRequestPe
             textCarbohydrates.setVisibility(View.INVISIBLE);
             btnCarbohydrates.setVisibility(View.INVISIBLE);
             reset_viewport = true;
-            Treatments.create(thiscarbsnumber, 0, new ArrayList<InsulinInjection>(), Treatments.getTimeStampWithOffset(thistimeoffset));
+            Treatments.create(thiscarbsnumber, 0, new ArrayList<>(), Treatments.getTimeStampWithOffset(thistimeoffset));
             thiscarbsnumber = 0;
             if (hideTreatmentButtonsIfAllDone()) {
                 updateCurrentBgInfo("carbs button");
@@ -869,7 +859,6 @@ public class Home extends ActivityWithMenu implements ActivityCompat.OnRequestPe
 
     private void cancelTreatment() {
         hideAllTreatmentButtons();
-        WatchUpdaterService.sendWearToast(gs(R.string.treatment_cancelled), Toast.LENGTH_SHORT);
     }
 
     private void processAndApproveTreatment() {
@@ -886,55 +875,20 @@ public class Home extends ActivityWithMenu implements ActivityCompat.OnRequestPe
             if ((mytimeoffset > (DAY_IN_MS * 3)) || (mytimeoffset < -HOUR_IN_MS * 3)) {
                 Log.e(TAG, "Treatment timestamp out of range: " + mytimeoffset);
                 JoH.static_toast_long(gs(R.string.treatment_time_wrong));
-                WatchUpdaterService.sendWearLocalToast(gs(R.string.treatment_error), Toast.LENGTH_LONG);
             } else {
                 JoH.static_toast_long(gs(R.string.treatment_processed));
-                WatchUpdaterService.sendWearLocalToast(gs(R.string.treatment_processed), Toast.LENGTH_LONG);
                 long time = Treatments.getTimeStampWithOffset(mytimeoffset);
                 // sanity check timestamp
                 final Treatments exists = Treatments.byTimestamp(time);
                 if (exists == null) {
-                    ArrayList<InsulinInjection> injections = new ArrayList<InsulinInjection>();
-                    for (int i = 0; i < maxInsulinProfiles; i++)
-                        if (insulinset[i] && thisinsulinprofile[i] != null) {
-                            InsulinInjection injection = new InsulinInjection(thisinsulinprofile[i], thisinsulinnumber[i]);
-                            injections.add(injection);
-                        }
                     Log.d(TAG, "processAndApproveTreatment create watchkeypad Treatment carbs=" + thiscarbsnumber + " insulin=" + thisInsulinSumNumber + " timestamp=" + JoH.dateTimeText(time) + " uuid=" + thisuuid);
-                    Treatments.create(thiscarbsnumber, thisInsulinSumNumber, injections, time, thisuuid);
-// gruoner: changed pendiq handling 09/12/19        TODO remove duplicate code with helper function
-// in case of multiple injections in a treatment, select the injection with the primary insulin profile defined in the profile editor; if not found, take 0
-// in case of a single injection in a treatment, assume thats the #units to send to pendiq
-                    double pendiqInsulin = 0;
-                    if (MultipleInsulins.isEnabled() && injections.size() > 1) {
-                        for (InsulinInjection i : injections)
-                            if (i.getProfile() == InsulinManager.getBolusProfile())
-                                pendiqInsulin = i.getUnits();
-                    } else pendiqInsulin = thisInsulinSumNumber;
-                    Pendiq.handleTreatment(pendiqInsulin);
+                    Treatments.create(thiscarbsnumber, thisInsulinSumNumber, new ArrayList<>(), time, thisuuid);
                 } else {
                     Log.d(TAG, "processAndApproveTreatment Treatment already exists carbs=" + thiscarbsnumber + " insulin=" + thisInsulinSumNumber + " timestamp=" + JoH.dateTimeText(time));
                 }
             }
         } else {
-            WatchUpdaterService.sendWearToast(gs(R.string.treatment_processed), Toast.LENGTH_LONG);
-            ArrayList<InsulinInjection> injections = new ArrayList<InsulinInjection>();
-            for (int i = 0; i < maxInsulinProfiles; i++)
-                if (insulinset[i] && thisinsulinprofile[i] != null) {
-                    InsulinInjection injection = new InsulinInjection(thisinsulinprofile[i], thisinsulinnumber[i]);
-                    injections.add(injection);
-                }
-            Treatments.create(thiscarbsnumber, thisInsulinSumNumber, injections, Treatments.getTimeStampWithOffset(mytimeoffset));
-// gruoner: changed pendiq handling 09/12/19   TODO remove duplicate code with helper function
-// in case of multiple injections in a treatment, select the injection with the primary insulin profile defined in the profile editor; if not found, take 0
-// in case of a single injection in a treatment, assume thats the #units to send to pendiq
-            double pendiqInsulin = 0;
-            if (MultipleInsulins.isEnabled() && injections.size() > 1) {
-                for (InsulinInjection i : injections)
-                    if (i.getProfile() == InsulinManager.getBolusProfile())
-                        pendiqInsulin = i.getUnits();
-            } else pendiqInsulin = thisInsulinSumNumber;
-            Pendiq.handleTreatment(pendiqInsulin);
+            Treatments.create(thiscarbsnumber, thisInsulinSumNumber, new ArrayList<>(), Treatments.getTimeStampWithOffset(mytimeoffset));
         }
         hideAllTreatmentButtons();
 
@@ -960,17 +914,15 @@ public class Home extends ActivityWithMenu implements ActivityCompat.OnRequestPe
     private void processIncomingBundle(Bundle bundle) {
         Log.d(TAG, "Processing incoming bundle");
         if (bundle != null) {
-            String receivedText = bundle.getString(WatchUpdaterService.WEARABLE_VOICE_PAYLOAD);
+            String receivedText = null;
             if (receivedText != null) {
                 voiceRecognitionText.setText(receivedText);
                 voiceRecognitionText.setVisibility(View.VISIBLE);
                 last_speech_time = JoH.ts();
                 naturalLanguageRecognition(receivedText);
             }
-            if (bundle.getString(WatchUpdaterService.WEARABLE_APPROVE_TREATMENT) != null || watchkeypad)
+            if (watchkeypad)
                 processAndApproveTreatment();
-            else if (bundle.getString(WatchUpdaterService.WEARABLE_CANCEL_TREATMENT) != null)
-                cancelTreatment();
             else if (bundle.getString(Home.START_SPEECH_RECOGNITION) != null) promptSpeechInput();
             else if (bundle.getString(Home.START_TEXT_RECOGNITION) != null) promptTextInput_old();
             else if (bundle.getString(Home.CREATE_TREATMENT_NOTE) != null) {
@@ -1035,7 +987,6 @@ public class Home extends ActivityWithMenu implements ActivityCompat.OnRequestPe
                             NumberGraphic.testNotification("123");
                         });
             } else if (bundle.getString("inpen-reset") != null) {
-                InPenEntry.startWithReset();
             } else if (bundle.getString(Home.BLOOD_TEST_ACTION) != null) {
                 Log.d(TAG, "BLOOD_TEST_ACTION");
                 final AlertDialog.Builder builder = new AlertDialog.Builder(this);
@@ -1177,7 +1128,6 @@ public class Home extends ActivityWithMenu implements ActivityCompat.OnRequestPe
                 byTypeInvisible) {
             hideAllTreatmentButtons(); // we clear values here also
             //send toast to wear - closes the confirmation activity on the watch
-            WatchUpdaterService.sendWearToast(gs(R.string.treatment_processed), Toast.LENGTH_LONG);
             return true;
         } else {
             return false;
@@ -1433,7 +1383,7 @@ public class Home extends ActivityWithMenu implements ActivityCompat.OnRequestPe
         glucoseset = false;
         thisInsulinSumNumber = 0;
         thisinsulinnumber = new double[MAX_INSULIN_PROFILES];
-        thisinsulinprofile = new Insulin[MAX_INSULIN_PROFILES];
+        thisinsulinprofile = new Object[0];
         carbsset = false;
         timeset = false;
         thisnumber = -1;
@@ -1500,9 +1450,7 @@ public class Home extends ActivityWithMenu implements ActivityCompat.OnRequestPe
                         textInsulinSumDose.setText(thisNumberStr + " units");
                         Log.d(TAG, "Rapid dose: " + thisNumberStr);
                         textInsulinSumDose.setVisibility(View.VISIBLE);
-                        if (!MultipleInsulins.isEnabled()) {
-                            buttonInsulinSingleDose.setVisibility(View.VISIBLE); // show the button next to the single insulin dose if not using multiples
-                        }
+                        buttonInsulinSingleDose.setVisibility(View.VISIBLE);
                         insulinsumset = true;
                     } else {
                         Log.d(TAG, " Insulin dose is too small: " + thisNumberStr);
@@ -1604,34 +1552,6 @@ public class Home extends ActivityWithMenu implements ActivityCompat.OnRequestPe
                 }
                 break;
             default:
-                if (MultipleInsulins.isEnabled()) {
-                    final Insulin insulin = InsulinManager.getProfile(thisword);
-                    if (insulin != null) {
-                        UserError.Log.d("TREATMENTS", "Processing for: " + insulin.getName());
-                        int number = 0;
-                        for (number = 0; number < maxInsulinProfiles; number++)
-                            if ((thisinsulinprofile[number] == null) || (thisinsulinprofile[number] == insulin)) {
-                                thisinsulinprofile[number] = insulin;
-                                break;
-                            }
-                        if (!insulinset[number]) {
-                            final String thisNumberStr = Double.toString(thisnumber);
-                            if (thisnumber > 0) {
-                                thisinsulinnumber[number] = thisnumber;
-                                textInsulinDose[number].setText(thisNumberStr + " " + insulin.getName());
-                                Log.d(TAG, insulin.getName() + " dose: " + thisNumberStr);
-                                insulinset[number] = true;
-                                btnInsulinDose[number].setVisibility(View.VISIBLE);
-                                textInsulinDose[number].setVisibility(View.VISIBLE);
-                            } else {
-                                Log.d(TAG, insulin.getName() + " dose is too small: " + thisNumberStr);
-                            }
-                        } else {
-                            Log.d(TAG, insulin.getName() + " dose already set");
-                            preserve = true;
-                        }
-                    }
-                }
                 break;
         } // end switch
 
@@ -1683,24 +1603,6 @@ public class Home extends ActivityWithMenu implements ActivityCompat.OnRequestPe
             if (chart != null) {
                 chart.setAlpha((float) 0.10);
             }
-            ArrayList<InsulinInjection> injections = new ArrayList<InsulinInjection>();
-            for (int i = 0; i < maxInsulinProfiles; i++)
-                if (insulinset[i] && thisinsulinprofile[i] != null) {
-                    InsulinInjection injection = new InsulinInjection(thisinsulinprofile[i], thisinsulinnumber[i]);
-                    injections.add(injection);
-                }
-            Gson gson = new GsonBuilder()
-                    .excludeFieldsWithoutExposeAnnotation()
-                    .registerTypeAdapter(Date.class, new DateTypeAdapter())
-                    .serializeSpecialFloatingPointValues()
-                    .create();
-            WatchUpdaterService.sendTreatment(
-                    thiscarbsnumber,
-                    thisInsulinSumNumber,
-                    thisglucosenumber,
-                    gson.toJson(injections),
-                    thistimeoffset,
-                    textTime.getText().toString());
         }
     }
 
@@ -1944,10 +1846,8 @@ public class Home extends ActivityWithMenu implements ActivityCompat.OnRequestPe
         firstRunDialogs(checkedeula);
 
         Inevitable.task("home-resume-bg", 2000, () -> {
-            InPenEntry.startIfEnabled();
             EmergencyAssistActivity.checkPermissionRemoved();
             NightscoutUploader.launchDownloadRest();
-            Pendiq.immortality(); // Experimental testing phase
         });
     }
 
@@ -2241,27 +2141,12 @@ public class Home extends ActivityWithMenu implements ActivityCompat.OnRequestPe
     }
 
     public static void startWatchUpdaterService(Context context, String action, String logTag) {
-        final boolean wear_integration = Pref.getBoolean("wear_sync", false);
-        if (wear_integration) {
-            Log.d(logTag, "start WatchUpdaterService with " + action);
-            context.startService(new Intent(context, WatchUpdaterService.class).setAction(action));
-        }
     }
 
     public static void startWatchUpdaterService(Context context, String action, String logTag, String key, String value) {
-        final boolean wear_integration = Pref.getBoolean("wear_sync", false);
-        if (wear_integration) {
-            Log.d(logTag, "start WatchUpdaterService with " + action);
-            context.startService(new Intent(context, WatchUpdaterService.class).setAction(action).putExtra(key, value));
-        }
     }
 
     public static void startWatchUpdaterService(Context context, String action, String logTag, String key, boolean value) {
-        final boolean wear_integration = Pref.getBoolean("wear_sync", false);
-        if (wear_integration) {
-            Log.d(logTag, "start WatchUpdaterService with " + action);
-            context.startService(new Intent(context, WatchUpdaterService.class).setAction(action).putExtra(key, value));
-        }
     }
 
     public static boolean get_holo() {
@@ -3514,18 +3399,12 @@ public class Home extends ActivityWithMenu implements ActivityCompat.OnRequestPe
     }
 
     public void resendGlucoseToWatch(MenuItem myitem) {
-        WatchUpdaterService.startServiceAndResendData(0);
-        if (Pref.getBooleanDefaultFalse("pref_amazfit_enable_key")) {
-            Amazfitservice.start("xDrip_synced_SGV_data");
-        }
     }
 
     public void openSettingsOnWatch(MenuItem myitem) {
-        startService(new Intent(this, WatchUpdaterService.class).setAction(WatchUpdaterService.ACTION_OPEN_SETTINGS));
     }
 
     public void resetWearDb(MenuItem myitem) {
-        startService(new Intent(this, WatchUpdaterService.class).setAction(WatchUpdaterService.ACTION_RESET_DB));
     }
 
     public void undoButtonClick(View myitem) {

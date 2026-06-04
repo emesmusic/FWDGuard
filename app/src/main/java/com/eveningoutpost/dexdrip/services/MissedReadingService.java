@@ -27,17 +27,12 @@ import com.eveningoutpost.dexdrip.utilitymodels.Pref;
 import com.eveningoutpost.dexdrip.utilitymodels.pebble.PebbleUtil;
 import com.eveningoutpost.dexdrip.utilitymodels.pebble.PebbleWatchSync;
 import com.eveningoutpost.dexdrip.healthconnect.HealthConnectEntry;
-import com.eveningoutpost.dexdrip.insulin.inpen.InPenEntry;
 import com.eveningoutpost.dexdrip.ui.LockScreenWallPaper;
 import com.eveningoutpost.dexdrip.utils.DexCollectionType;
-import com.eveningoutpost.dexdrip.watch.lefun.LeFun;
-import com.eveningoutpost.dexdrip.watch.lefun.LeFunEntry;
 import com.eveningoutpost.dexdrip.services.broadcastservice.BroadcastEntry;
-import com.eveningoutpost.dexdrip.wearintegration.WatchUpdaterService;
 import com.eveningoutpost.dexdrip.webservices.XdripWebService;
 import com.eveningoutpost.dexdrip.xdrip;
 
-import static com.eveningoutpost.dexdrip.Home.startWatchUpdaterService;
 import static com.eveningoutpost.dexdrip.utils.DexCollectionType.getLocalServiceCollectingState;
 
 public class MissedReadingService extends IntentService {
@@ -74,10 +69,6 @@ public class MissedReadingService extends IntentService {
                 // update pebble even when we don't have data to ensure missed readings show
             }
 
-            if (LeFunEntry.isEnabled() && (!BgReading.last_within_millis(stale_millis))) {
-                LeFun.showLatestBG();
-            }
-
             if (BroadcastEntry.isEnabled() && (!BgReading.last_within_millis(stale_millis))) {
                 BroadcastEntry.sendLatestBG();
             }
@@ -99,7 +90,6 @@ public class MissedReadingService extends IntentService {
             Reminder.processAnyDueReminders();
             BluetoothGlucoseMeter.immortality();
             XdripWebService.immortality(); //
-            InPenEntry.immortality();
             DesertSync.pullAsEnabled();
             NanoStatus.keepFollowerUpdated();
             LockScreenWallPaper.timerPoll();
@@ -122,14 +112,6 @@ public class MissedReadingService extends IntentService {
                 return;
             }
 
-
-            if ((Home.get_forced_wear()) && Pref.getBoolean("disable_wearG5_on_missedreadings", false)) {
-                int bg_wear_missed_minutes = Pref.getStringToInt("disable_wearG5_on_missedreadings_level", 30);
-                if (BgReading.getTimeSinceLastReading() >= (bg_wear_missed_minutes * 1000 * 60)) {
-                    Log.d(TAG, "Request WatchUpdaterService to disable force_wearG5 when wear is connected");
-                    startWatchUpdaterService(xdrip.getAppContext(), WatchUpdaterService.ACTION_DISABLE_FORCE_WEAR, TAG);
-                }
-            }
 
             final int bg_missed_minutes = Pref.getStringToInt("bg_missed_minutes", 30);
             final long now = JoH.tsl();
