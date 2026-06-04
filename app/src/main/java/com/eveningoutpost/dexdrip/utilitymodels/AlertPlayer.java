@@ -1,6 +1,5 @@
 package com.eveningoutpost.dexdrip.utilitymodels;
 
-import static com.eveningoutpost.dexdrip.Home.startWatchUpdaterService;
 import static com.eveningoutpost.dexdrip.models.JoH.delayedMediaPlayerRelease;
 import static com.eveningoutpost.dexdrip.models.JoH.setMediaDataSource;
 import static com.eveningoutpost.dexdrip.models.JoH.stopAndReleasePlayer;
@@ -36,14 +35,7 @@ import com.eveningoutpost.dexdrip.eassist.AlertTracker;
 import com.eveningoutpost.dexdrip.ui.FlashLight;
 import com.eveningoutpost.dexdrip.ui.helpers.AudioFocusType;
 import com.eveningoutpost.dexdrip.utils.PowerStateReceiver;
-import com.eveningoutpost.dexdrip.watch.lefun.LeFun;
-import com.eveningoutpost.dexdrip.watch.lefun.LeFunEntry;
-import com.eveningoutpost.dexdrip.watch.miband.MiBand;
-import com.eveningoutpost.dexdrip.watch.miband.MiBandEntry;
-import com.eveningoutpost.dexdrip.watch.thinjam.BlueJayEntry;
-import com.eveningoutpost.dexdrip.wearintegration.Amazfitservice;
 import com.eveningoutpost.dexdrip.services.broadcastservice.BroadcastEntry;
-import com.eveningoutpost.dexdrip.wearintegration.WatchUpdaterService;
 import com.eveningoutpost.dexdrip.services.broadcastservice.Const;
 import com.eveningoutpost.dexdrip.xdrip;
 
@@ -237,16 +229,6 @@ public class AlertPlayer {
     //  default signature for user initiated interactive snoozes only
     public synchronized void Snooze(Context ctx, int repeatTime) {
         Snooze(ctx, repeatTime, true);
-
-        BlueJayEntry.cancelNotifyIfEnabled();
-
-        if (Pref.getBooleanDefaultFalse("bg_notifications_watch") ) {
-            startWatchUpdaterService(ctx, WatchUpdaterService.ACTION_SNOOZE_ALERT, TAG, "repeatTime", "" + repeatTime);
-        }
-        if (Pref.getBooleanDefaultFalse("pref_amazfit_enable_key")
-                && Pref.getBooleanDefaultFalse("pref_amazfit_BG_alert_enable_key")) {
-            Amazfitservice.start("xDrip_AlarmCancel");
-        }
 
         BroadcastEntry.cancelAlert();
         ping("alarm");
@@ -600,28 +582,11 @@ public class AlertPlayer {
         //mNotifyMgr.cancel(Notifications.exportAlertNotificationId); // this appears to confuse android wear version 2.0.0.141773014.gms even though it shouldn't - can we survive without this?
         mNotifyMgr.notify(Notifications.exportAlertNotificationId, XdripNotificationCompat.build(builder));
 
-        // send to bluejay
-        BlueJayEntry.sendAlertIfEnabled((alert.above ? "High" : "Low") + " Alert " + bgValue + " " + alert.name); // string text is used to determine alert type
-
         // send alert to pebble
         if (Pref.getBooleanDefaultFalse("broadcast_to_pebble") && (Pref.getBooleanDefaultFalse("pebble_vibe_alerts"))) {
             if (JoH.ratelimit("pebble_vibe_start", 59)) {
                 JoH.startService(PebbleWatchSync.class);
             }
-        }
-
-        //send alert to amazfit
-        if (Pref.getBooleanDefaultFalse("pref_amazfit_enable_key")
-                && Pref.getBooleanDefaultFalse("pref_amazfit_BG_alert_enable_key")) {
-            Amazfitservice.start("xDrip_Alarm", alert.name, alert.default_snooze);
-        }
-
-        if (LeFunEntry.areAlertsEnabled() && ActiveBgAlert.currentlyAlerting()) {
-            LeFun.sendAlert(highlow, bgValue);
-        }
-
-        if (MiBandEntry.areAlertsEnabled() && ActiveBgAlert.currentlyAlerting()) {
-            MiBand.sendAlert(alert.name, highlow + " " + bgValue, alert.default_snooze);
         }
 
         if (ActiveBgAlert.currentlyAlerting()) {

@@ -54,14 +54,12 @@ import com.eveningoutpost.dexdrip.ui.MicroStatus;
 import com.eveningoutpost.dexdrip.ui.MicroStatusImpl;
 import com.eveningoutpost.dexdrip.utils.DexCollectionType;
 import com.eveningoutpost.dexdrip.utils.LocationHelper;
-import com.eveningoutpost.dexdrip.wearintegration.WatchUpdaterService;
 import com.google.android.gms.wearable.DataMap;
 
 import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Set;
 
-import static com.eveningoutpost.dexdrip.Home.startWatchUpdaterService;
 import static com.eveningoutpost.dexdrip.services.Ob1G5CollectionService.getTransmitterID;
 import static com.eveningoutpost.dexdrip.utils.DatabaseUtil.getDataBaseSizeInBytes;
 import static com.eveningoutpost.dexdrip.utils.DexCollectionType.DexcomG5;
@@ -110,26 +108,6 @@ public class SystemStatusFragment extends Fragment {
                     String lastState = dataMap.getString("lastState", "");
                     long last_timestamp = dataMap.getLong("timestamp", 0);
                     UserError.Log.d(TAG, "serviceDataReceiver onReceive:" + action + " :: " + lastState + " last_timestamp :: " + last_timestamp);
-                    switch (action) {
-                        case WatchUpdaterService.ACTION_BLUETOOTH_COLLECTION_SERVICE_UPDATE:
-                            switch (DexCollectionType.getDexCollectionType()) {
-                                case DexcomG5:
-                                    G5CollectionService.setWatchStatus(dataMap);//msg, last_timestamp
-                                    break;
-                                case DexcomShare:
-                                    if (lastState != null && !lastState.isEmpty()) {
-                                        setConnectionStatus(lastState);//TODO getLastState() in non-G5 Services
-                                    }
-                                    break;
-                                default:
-                                    DexCollectionService.setWatchStatus(dataMap);//msg, last_timestamp
-                                    if (lastState != null && !lastState.isEmpty()) {
-                                        setConnectionStatus(lastState);
-                                    }
-                                    break;
-                            }
-                            break;
-                    }
                 }
             }
         };
@@ -141,16 +119,6 @@ public class SystemStatusFragment extends Fragment {
     }
 
     private void requestWearCollectorStatus() {
-        final PowerManager.WakeLock wl = JoH.getWakeLock("ACTION_STATUS_COLLECTOR",120000);
-        if (Home.get_enable_wear()) {
-            if (DexCollectionType.getDexCollectionType().equals(DexcomG5)) {
-                startWatchUpdaterService(safeGetContext(), WatchUpdaterService.ACTION_STATUS_COLLECTOR, TAG, "getBatteryStatusNow", G5CollectionService.getBatteryStatusNow);
-            }
-            else {
-                startWatchUpdaterService(safeGetContext(), WatchUpdaterService.ACTION_STATUS_COLLECTOR, TAG);
-            }
-        }
-        JoH.releaseWakeLock(wl);
     }
 
     @Override
@@ -168,9 +136,7 @@ public class SystemStatusFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
-        final IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(WatchUpdaterService.ACTION_BLUETOOTH_COLLECTION_SERVICE_UPDATE);
-        LocalBroadcastManager.getInstance(safeGetContext()).registerReceiver(serviceDataReceiver, intentFilter);
+        LocalBroadcastManager.getInstance(safeGetContext()).registerReceiver(serviceDataReceiver, new IntentFilter());
     }
 
     @Override
@@ -488,7 +454,6 @@ public class SystemStatusFragment extends Fragment {
                 v.setEnabled(false);
                 JoH.static_toast_short(gs(R.string.restarting_collector));
                 v.setAlpha(0.2f);
-                startWatchUpdaterService(safeGetContext(), WatchUpdaterService.ACTION_START_COLLECTOR, TAG);
                 CollectionServiceStarter.restartCollectionService(safeGetContext());
                 set_current_values();
                 JoH.runOnUiThreadDelayed(new Runnable() {

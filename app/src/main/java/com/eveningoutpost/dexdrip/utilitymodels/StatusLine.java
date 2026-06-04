@@ -11,7 +11,6 @@ import com.eveningoutpost.dexdrip.models.UserError;
 import com.eveningoutpost.dexdrip.calibrations.CalibrationAbstract;
 import com.eveningoutpost.dexdrip.calibrations.PluggableCalibration;
 import com.eveningoutpost.dexdrip.stats.StatsResult;
-import com.eveningoutpost.dexdrip.wearintegration.ExternalStatusService;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -142,10 +141,6 @@ public class StatusLine {
             append(sb, PumpStatus.getBolusIoBString());
             sb.append(PumpStatus.getReservoirString());
             sb.append(PumpStatus.getBatteryString());
-        }
-
-        if (Pref.getBooleanDefaultFalse("status_line_external_status")) {
-            append(sb, ExternalStatusService.getLastStatusLine());
         }
 
         if (Pref.getBoolean("extra_status_calibration_plugin", false)) {

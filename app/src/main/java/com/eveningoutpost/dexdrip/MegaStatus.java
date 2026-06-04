@@ -6,7 +6,6 @@ package com.eveningoutpost.dexdrip;
  * Multi-page plugin style status entry lists
  */
 
-import static com.eveningoutpost.dexdrip.Home.startWatchUpdaterService;
 import static com.eveningoutpost.dexdrip.utils.DexCollectionType.DexcomG5;
 import static com.eveningoutpost.dexdrip.utils.DexCollectionType.GluPro;
 import static com.eveningoutpost.dexdrip.utils.DexCollectionType.Medtrum;
@@ -66,16 +65,7 @@ import com.eveningoutpost.dexdrip.cgm.nsfollow.NightscoutFollowService;
 import com.eveningoutpost.dexdrip.cgm.sharefollow.ShareFollowService;
 import com.eveningoutpost.dexdrip.cgm.webfollow.WebFollowService;
 import com.eveningoutpost.dexdrip.cgm.carelinkfollow.CareLinkFollowService;
-import com.eveningoutpost.dexdrip.insulin.inpen.InPenEntry;
-import com.eveningoutpost.dexdrip.insulin.inpen.InPenService;
 import com.eveningoutpost.dexdrip.utils.DexCollectionType;
-import com.eveningoutpost.dexdrip.watch.lefun.LeFunEntry;
-import com.eveningoutpost.dexdrip.watch.lefun.LeFunService;
-import com.eveningoutpost.dexdrip.watch.miband.MiBandEntry;
-import com.eveningoutpost.dexdrip.watch.miband.MiBandService;
-import com.eveningoutpost.dexdrip.watch.thinjam.BlueJayEntry;
-import com.eveningoutpost.dexdrip.watch.thinjam.BlueJayService;
-import com.eveningoutpost.dexdrip.wearintegration.WatchUpdaterService;
 import com.github.amlcurran.showcaseview.ShowcaseView;
 import com.github.amlcurran.showcaseview.targets.ViewTarget;
 import com.google.android.gms.wearable.DataMap;
@@ -129,10 +119,6 @@ public class MegaStatus extends FloatingLocaleActivityWithScreenshot {
     private static final String IP_COLLECTOR = "IP Collector";
     private static final String XDRIP_PLUS_SYNC = "Followers";
     private static final String UPLOADERS = "Uploaders";
-    private static final String LEFUN_STATUS = "Lefun";
-    private static final String MIBAND_STATUS = "MiBand";
-    private static final String BLUEJAY_STATUS = "BlueJay";
-    private static final String INPEN_STATUS = "InPen";
     private static final String NIGHTSCOUT_FOLLOW = "Nightscout Follow";
     private static final String SHARE_FOLLOW = "Dex Share Follow";
     private static final String WEB_FOLLOW = "Web Follower";
@@ -182,17 +168,11 @@ public class MegaStatus extends FloatingLocaleActivityWithScreenshot {
             if (dexCollectionType.equals(GluPro)) {
                 addAsection(GLU_PRO, getString(R.string.glupro_status));
             }
-            if (BlueJayEntry.isEnabled()) {
-                addAsection(BLUEJAY_STATUS, "BlueJay Watch Status");
-            }
             if (DexCollectionType.getDexCollectionType() == DexCollectionType.LibreReceiver) {
                 addAsection(XDRIP_LIBRE2, "Libre Patched App Status");
             }
             if (DexCollectionType.hasWifi()) {
                 addAsection(IP_COLLECTOR, dexCollectionType == DexCollectionType.Mock ? "FAKE / MOCK DATA SOURCE" : "Wifi Wixel / Parakeet Status");
-            }
-            if (InPenEntry.isEnabled()) {
-                addAsection(INPEN_STATUS,"InPen Status");
             }
             if (Home.get_master_or_follower()) {
                 addAsection(XDRIP_PLUS_SYNC, "xDrip+ Sync Group");
@@ -203,12 +183,6 @@ public class MegaStatus extends FloatingLocaleActivityWithScreenshot {
                     || Pref.getBooleanDefaultFalse("share_upload")
                     || (Pref.getBooleanDefaultFalse("wear_sync") && Home.get_engineering_mode())) {
                 addAsection(UPLOADERS, "Cloud Uploader Queues");
-            }
-            if (LeFunEntry.isEnabled()) {
-                addAsection(LEFUN_STATUS, "Lefun Watch Status");
-            }
-            if (MiBandEntry.isEnabled()) {
-                addAsection(MIBAND_STATUS, "MiBand Watch Status");
             }
             if(dexCollectionType.equals(NSFollow)) {
                 addAsection(NIGHTSCOUT_FOLLOW, "Nightscout Follow Status");
@@ -263,18 +237,6 @@ public class MegaStatus extends FloatingLocaleActivityWithScreenshot {
                 break;
             case UPLOADERS:
                 la.addRows(UploaderQueue.megaStatus());
-                break;
-            case LEFUN_STATUS:
-                la.addRows(LeFunService.megaStatus());
-                break;
-            case MIBAND_STATUS:
-                la.addRows(MiBandService.megaStatus());
-                break;
-            case BLUEJAY_STATUS:
-                la.addRows(BlueJayService.megaStatus());
-                break;
-            case INPEN_STATUS:
-                la.addRows(InPenService.megaStatus());
                 break;
             case NIGHTSCOUT_FOLLOW:
                 la.addRows(NightscoutFollowService.megaStatus());
@@ -361,28 +323,6 @@ public class MegaStatus extends FloatingLocaleActivityWithScreenshot {
                     String lastState = dataMap.getString("lastState", "");
                     long last_timestamp = dataMap.getLong("timestamp", 0);
                     UserError.Log.d(TAG, "serviceDataReceiver onReceive:" + action + " :: " + lastState + " last_timestamp :: " + last_timestamp);
-                    switch (action) {
-                        case WatchUpdaterService.ACTION_BLUETOOTH_COLLECTION_SERVICE_UPDATE:
-                            switch (DexCollectionType.getDexCollectionType()) {
-                                case DexcomG5:
-                                    // as this is fairly lightweight just write the data to both G5 collectors
-                                    G5CollectionService.setWatchStatus(dataMap);//msg, last_timestamp
-                                    Ob1G5CollectionService.setWatchStatus(dataMap);//msg, last_timestamp
-                                    break;
-                                case DexcomShare:
-                                    if (lastState != null && !lastState.isEmpty()) {
-                                        //setConnectionStatus(lastState);//TODO set System Status page connection_status.setText to lastState for non-G5 Services?
-                                    }
-                                    break;
-                                default:
-                                    DexCollectionService.setWatchStatus(dataMap);//msg, last_timestamp
-                                    if (lastState != null && !lastState.isEmpty()) {
-                                        //setConnectionStatus(lastState);//TODO set System Status page connection_status.setText to lastState for non-G5 Services?
-                                    }
-                                    break;
-                            }
-                            break;
-                    }
                 }
             }
         };
@@ -418,13 +358,6 @@ public class MegaStatus extends FloatingLocaleActivityWithScreenshot {
     }
 
     private void requestWearCollectorStatus() {
-        if (Home.get_enable_wear()) {
-            if (DexCollectionType.getDexCollectionType().equals(DexcomG5)) {
-                startWatchUpdaterService(xdrip.getAppContext(), WatchUpdaterService.ACTION_STATUS_COLLECTOR, TAG, "getBatteryStatusNow", G5CollectionService.getBatteryStatusNow);
-            } else {
-                startWatchUpdaterService(xdrip.getAppContext(), WatchUpdaterService.ACTION_STATUS_COLLECTOR, TAG);
-            }
-        }
     }
 
     @Override
@@ -449,9 +382,7 @@ public class MegaStatus extends FloatingLocaleActivityWithScreenshot {
         super.onResume();
 
         activityVisible = true;
-        final IntentFilter intentFilter = new IntentFilter();
-        intentFilter.addAction(WatchUpdaterService.ACTION_BLUETOOTH_COLLECTION_SERVICE_UPDATE);
-        LocalBroadcastManager.getInstance(xdrip.getAppContext()).registerReceiver(serviceDataReceiver, intentFilter);
+        LocalBroadcastManager.getInstance(xdrip.getAppContext()).registerReceiver(serviceDataReceiver, new IntentFilter());
 
         if ((autoRunnable != null) || (autoStart)) startAutoFresh();
 
